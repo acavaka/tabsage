@@ -61,37 +61,163 @@ The central orchestrator of this system is the `Orchestrator`, which coordinates
 
 ```mermaid
 graph TB
-    User[User via Telegram Bot] --> Intent[Intent Recognition Agent]
-    
-    Intent -->|URL| URLFlow[URL Processing Flow]
-    Intent -->|Search| SearchFlow[Search Flow]
-    Intent -->|Audio| AudioFlow[Audio Generation Flow]
-    
-    subgraph URLFlow[Article Processing Pipeline]
-        URLFlow --> Scraper[Web Scraper Tool]
-        Scraper --> Ingest[Ingest Agent]
-        Ingest --> KG[KG Builder Agent]
-        Ingest --> Summary[Summary Agent]
-        KG --> Firestore[(Firestore Knowledge Graph)]
-        Summary --> Firestore
+    subgraph UserInterface[User Interfaces]
+        Telegram[Telegram Bot]
+        WebUI[Web Interface]
     end
     
-    subgraph SearchFlow[Search & Discovery]
-        SearchFlow --> Topic[Topic Discovery Agent]
-        Topic --> Guest[Guest Agent]
-        Guest --> Firestore
+    subgraph EntryPoint[Entry Point]
+        IntentAgent[Intent Recognition Agent]
     end
     
-    subgraph AudioFlow[Audio Generation Pipeline]
-        AudioFlow --> Scriptwriter[Scriptwriter Agent]
-        Scriptwriter --> Audio[Audio Producer Agent]
-        Audio --> Publisher[Publisher Agent]
-        Scriptwriter --> Editor[Editor Agent]
-        Editor --> Evaluator[Evaluator Agent]
+    subgraph ProcessingPipeline[Article Processing Pipeline]
+        WebScraper[Web Scraper Tool]
+        IngestAgent[Ingest Agent]
+        KGBuilderAgent[KG Builder Agent]
+        SummaryAgent[Summary Agent]
     end
     
-    Firestore --> Web[Web Interface]
-    Firestore --> Search[Semantic Search]
+    subgraph DiscoveryPipeline[Topic Discovery & Audio Pipeline]
+        TopicDiscoveryAgent[Topic Discovery Agent]
+        ScriptwriterAgent[Scriptwriter Agent]
+        AudioProducerAgent[Audio Producer Agent]
+        PublisherAgent[Publisher Agent]
+    end
+    
+    subgraph QualityPipeline[Quality Assurance Pipeline]
+        EvaluatorAgent[Evaluator Agent]
+        EditorAgent[Editor Agent]
+    end
+    
+    subgraph ExpertSystem[Expert System]
+        GuestAgent[Guest Agent]
+    end
+    
+    subgraph Orchestration[Orchestration]
+        Orchestrator[Orchestrator Agent]
+    end
+    
+    subgraph ToolsLayer[Tools Layer]
+        NLP[NLP Tools<br/>- Text cleaning<br/>- Chunking<br/>- Language detection]
+        NER[NER & Entity Linking<br/>- Entity extraction<br/>- Entity normalization<br/>- Entity linking]
+        Embeddings[Embeddings<br/>- Vertex AI Embeddings]
+        TTS[TTS<br/>- Google Cloud TTS<br/>- SSML support]
+        AudioUtils[Audio Utils<br/>- Normalization<br/>- Mixing<br/>- Segmentation]
+        Cache[Cache<br/>- Function caching]
+    end
+    
+    subgraph StorageLayer[Storage Layer]
+        FirestoreKG[(Firestore<br/>Knowledge Graph)]
+        FirestoreMemory[(Firestore<br/>Memory Service)]
+        SharedMemory[Shared Memory<br/>Inter-agent communication]
+    end
+    
+    subgraph ObservabilityLayer[Observability Layer]
+        Logging[Structured Logging<br/>JSON logs]
+        Tracing[OpenTelemetry<br/>Distributed tracing]
+        Metrics[Prometheus<br/>Metrics on port 8000]
+    end
+    
+    subgraph CommunicationLayer[Communication Layer]
+        A2A[A2A Protocol<br/>Agent-to-Agent]
+        Registry[Vertex AI<br/>Agent Registry]
+        RemoteAgents[Remote Agents<br/>HTTP endpoints]
+    end
+    
+    subgraph SearchLayer[Search Layer]
+        SemanticSearch[Semantic Search<br/>Vertex AI Search]
+        GraphSearch[Graph Search<br/>Firestore queries]
+    end
+    
+    %% User Interface Connections
+    Telegram --> IntentAgent
+    WebUI --> FirestoreKG
+    WebUI --> GraphSearch
+    
+    %% Entry Point to Pipelines
+    IntentAgent -->|URL| ProcessingPipeline
+    IntentAgent -->|Search| SearchLayer
+    IntentAgent -->|Audio| DiscoveryPipeline
+    
+    %% Processing Pipeline Flow
+    ProcessingPipeline --> WebScraper
+    WebScraper --> IngestAgent
+    IngestAgent --> KGBuilderAgent
+    IngestAgent --> SummaryAgent
+    KGBuilderAgent --> FirestoreKG
+    SummaryAgent --> FirestoreKG
+    
+    %% Discovery Pipeline Flow
+    FirestoreKG --> TopicDiscoveryAgent
+    TopicDiscoveryAgent --> ScriptwriterAgent
+    ScriptwriterAgent --> AudioProducerAgent
+    AudioProducerAgent --> PublisherAgent
+    ScriptwriterAgent --> EditorAgent
+    EditorAgent --> EvaluatorAgent
+    
+    %% Quality Pipeline
+    EvaluatorAgent --> EditorAgent
+    EditorAgent --> ScriptwriterAgent
+    
+    %% Expert System
+    FirestoreKG --> GuestAgent
+    GuestAgent --> SharedMemory
+    
+    %% Orchestration
+    Orchestrator --> ProcessingPipeline
+    Orchestrator --> DiscoveryPipeline
+    Orchestrator --> QualityPipeline
+    
+    %% Tools Usage
+    IngestAgent --> NLP
+    KGBuilderAgent --> NER
+    KGBuilderAgent --> Embeddings
+    AudioProducerAgent --> TTS
+    AudioProducerAgent --> AudioUtils
+    ProcessingPipeline --> Cache
+    
+    %% Storage Connections
+    KGBuilderAgent --> FirestoreKG
+    SummaryAgent --> FirestoreKG
+    TopicDiscoveryAgent --> FirestoreKG
+    GuestAgent --> FirestoreMemory
+    Orchestrator --> SharedMemory
+    
+    %% Observability Connections
+    ProcessingPipeline -.->|monitors| ObservabilityLayer
+    DiscoveryPipeline -.->|monitors| ObservabilityLayer
+    QualityPipeline -.->|monitors| ObservabilityLayer
+    ObservabilityLayer --> Logging
+    ObservabilityLayer --> Tracing
+    ObservabilityLayer --> Metrics
+    
+    %% Communication Connections
+    ProcessingPipeline -.->|A2A| CommunicationLayer
+    DiscoveryPipeline -.->|A2A| CommunicationLayer
+    QualityPipeline -.->|A2A| CommunicationLayer
+    CommunicationLayer --> A2A
+    CommunicationLayer --> Registry
+    CommunicationLayer --> RemoteAgents
+    
+    %% Search Connections
+    SearchLayer --> SemanticSearch
+    SearchLayer --> GraphSearch
+    GraphSearch --> FirestoreKG
+    
+    %% Styling
+    classDef agent fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    classDef tool fill:#fff4e1,stroke:#ff9800,stroke-width:2px
+    classDef storage fill:#e1f5ff,stroke:#2196f3,stroke-width:2px
+    classDef observability fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px
+    classDef communication fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
+    classDef interface fill:#ffebee,stroke:#f44336,stroke-width:2px
+    
+    class IntentAgent,IngestAgent,KGBuilderAgent,SummaryAgent,TopicDiscoveryAgent,ScriptwriterAgent,AudioProducerAgent,PublisherAgent,EvaluatorAgent,EditorAgent,GuestAgent,Orchestrator agent
+    class WebScraper,NLP,NER,Embeddings,TTS,AudioUtils,Cache tool
+    class FirestoreKG,FirestoreMemory,SharedMemory storage
+    class Logging,Tracing,Metrics observability
+    class A2A,Registry,RemoteAgents communication
+    class Telegram,WebUI interface
 ```
 
 The real power of TabSage lies in its team of specialized agents, each an expert in its domain:
