@@ -1,0 +1,37 @@
+{
+  "test_cases": [
+    {
+      "name": "url_processing_intent",
+      "input": {
+        "user_message": "Process this article: https://habr.com/ru/articles/519982/"
+      },
+      "expected_output": {
+        "intent": "process_url",
+        "has_url": true
+      },
+      "evaluators": ["relevance"]
+    },
+    {
+      "name": "search_intent",
+      "input": {
+        "user_message": "Find articles about microservices"
+      },
+      "expected_output": {
+        "intent": "search_database",
+        "has_query": true
+      },
+      "evaluators": ["relevance"]
+    },
+    {
+      "name": "unknown_intent",
+      "input": {
+        "user_message": "Hello, how are you?"
+      },
+      "expected_output": {
+        "intent": "unknown"
+      },
+      "evaluators": ["relevance"]
+    }
+  ]
+}
+

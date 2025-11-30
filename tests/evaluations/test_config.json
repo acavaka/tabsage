@@ -1,0 +1,45 @@
+{
+  "evaluations": [
+    {
+      "agent": "ingest_agent",
+      "test_file": "ingest_agent.test.json",
+      "evaluators": ["factuality", "coherence", "relevance"],
+      "description": "Evaluation for Ingest Agent - text normalization and chunking"
+    },
+    {
+      "agent": "kg_builder_agent",
+      "test_file": "kg_builder_agent.test.json",
+      "evaluators": ["factuality", "relevance"],
+      "description": "Evaluation for KG Builder Agent - entity and relationship extraction"
+    },
+    {
+      "agent": "summary_agent",
+      "test_file": "summary_agent.test.json",
+      "evaluators": ["factuality", "coherence", "relevance"],
+      "description": "Evaluation for Summary Agent - summary generation"
+    },
+    {
+      "agent": "intent_agent",
+      "test_file": "intent_agent.test.json",
+      "evaluators": ["relevance"],
+      "description": "Evaluation for Intent Agent - intent recognition"
+    }
+  ],
+  "global_settings": {
+    "app_name": "tabsage",
+    "model": "gemini-2.5-flash-lite",
+    "timeout_seconds": 60,
+    "retry_attempts": 3
+  },
+  "regression_detection": {
+    "enabled": true,
+    "baseline_file": "baseline_results.json",
+    "thresholds": {
+      "factuality": 0.8,
+      "coherence": 0.8,
+      "relevance": 0.8
+    },
+    "alert_on_regression": true
+  }
+}
+

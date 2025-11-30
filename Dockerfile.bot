@@ -1,0 +1,27 @@
+# Dockerfile for Telegram Bot
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy all files first (needed for editable install)
+COPY . .
+
+# Install Python dependencies from pyproject.toml
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -e .
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
+ENV PYTHONPATH=/app
+
+# Expose port (Cloud Run uses PORT env var)
+EXPOSE $PORT
+
+# Run Telegram bot
+CMD ["python", "run_bot.py"]

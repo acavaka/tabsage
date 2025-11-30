@@ -1,0 +1,72 @@
+{
+  "test_cases": [
+    {
+      "name": "basic_text_ingest",
+      "input": {
+        "raw_text": "This is a test article about microservices. Microservices are an architectural approach to application development.",
+        "metadata": {
+          "url": "https://example.com/test",
+          "title": "Test Article",
+          "source": "test"
+        },
+        "session_id": "test_session_1",
+        "episode_id": "test_episode_1"
+      },
+      "expected_output": {
+        "language": "ru",
+        "chunks_count": {
+          "min": 1,
+          "max": 5
+        },
+        "has_title": true,
+        "has_summary": true
+      },
+      "evaluators": ["factuality", "coherence", "relevance"]
+    },
+    {
+      "name": "long_text_chunking",
+      "input": {
+        "raw_text": "This is a very long article. " * 100,
+        "metadata": {
+          "url": "https://example.com/long",
+          "title": "Long Article",
+          "source": "test"
+        },
+        "session_id": "test_session_2",
+        "episode_id": "test_episode_2"
+      },
+      "expected_output": {
+        "language": "ru",
+        "chunks_count": {
+          "min": 2,
+          "max": 5
+        },
+        "has_title": true
+      },
+      "evaluators": ["factuality", "coherence"]
+    },
+    {
+      "name": "english_text",
+      "input": {
+        "raw_text": "This is a test article about microservices. Microservices are an architectural approach to application development.",
+        "metadata": {
+          "url": "https://example.com/en",
+          "title": "Test Article",
+          "source": "test"
+        },
+        "session_id": "test_session_3",
+        "episode_id": "test_episode_3"
+      },
+      "expected_output": {
+        "language": "en",
+        "chunks_count": {
+          "min": 1,
+          "max": 5
+        },
+        "has_title": true
+      },
+      "evaluators": ["factuality", "coherence"]
+    }
+  ]
+}
+

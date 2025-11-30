@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TabSage - Knowledge Graph Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+        
+        #header {
+            background: #1a1a1a;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+        
+        #header h1 {
+            font-size: 1.5rem;
+            color: #4CAF50;
+        }
+        
+        #stats {
+            display: flex;
+            gap: 2rem;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #888;
+        }
+        
+        #controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        #search {
+            padding: 0.5rem 1rem;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 0.9rem;
+        }
+        
+        button {
+            padding: 0.5rem 1rem;
+            background: #4CAF50;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        #graph-container {
+            width: 100vw;
+            height: calc(100vh - 80px);
+            position: relative;
+        }
+        
+        #graph {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .node {
+            cursor: pointer;
+        }
+        
+        .node circle {
+            stroke: #fff;
+            stroke-width: 2px;
+        }
+        
+        .node text {
+            font-size: 12px;
+            fill: #e0e0e0;
+            pointer-events: none;
+        }
+        
+        .link {
+            stroke: #555;
+            stroke-opacity: 0.6;
+            stroke-width: 1.5px;
+        }
+        
+        .link:hover {
+            stroke-opacity: 1;
+            stroke-width: 2px;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 0.5rem;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 0.8rem;
+            max-width: 200px;
+            z-index: 1000;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #4CAF50;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>🗺️ TabSage Knowledge Graph</h1>
+        <div id="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="nodes-count">0</div>
+                <div class="stat-label">Nodes</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="edges-count">0</div>
+                <div class="stat-label">Edges</div>
+            </div>
+        </div>
+        <div id="controls">
+            <input type="text" id="search" placeholder="Search graph...">
+            <button onclick="refreshGraph()">Refresh</button>
+        </div>
+    </div>
+    
+    <div id="graph-container">
+        <div id="loading">Loading graph...</div>
+        <svg id="graph"></svg>
+    </div>
+    
+    <div class="tooltip" id="tooltip" style="display: none;"></div>
+    
+    <script>
+        let graphData = { nodes: [], edges: [] };
+        let simulation;
+        let svg, g;
+        
+        // Initialization
+        function init() {
+            svg = d3.select("#graph");
+            g = svg.append("g");
+            
+            // Load data
+            loadGraph();
+            
+            // Update statistics every 30 seconds
+            setInterval(updateStats, 30000);
+        }
+        
+        // Load graph
+        async function loadGraph() {
+            try {
+                const response = await fetch('/api/graph');
+                const data = await response.json();
+                
+                graphData = data;
+                renderGraph();
+                updateStats();
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                console.error('Error loading graph:', error);
+                document.getElementById('loading').textContent = 'Error loading graph';
+            }
+        }
+        
+        // Render graph
+        function renderGraph() {
+            const width = window.innerWidth;
+            const height = window.innerHeight - 80;
+            
+            svg.attr("width", width).attr("height", height);
+            
+            // Clear previous graph
+            g.selectAll("*").remove();
+            
+            // Create simulation
+            simulation = d3.forceSimulation(graphData.nodes)
+                .force("link", d3.forceLink(graphData.edges).id(d => d.node_id || d.canonical_name).distance(100))
+                .force("charge", d3.forceManyBody().strength(-300))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(30));
+            
+            // Links
+            const link = g.append("g")
+                .selectAll("line")
+                .data(graphData.edges)
+                .enter().append("line")
+                .attr("class", "link")
+                .attr("stroke-width", d => Math.sqrt(d.confidence || 0.5) * 2);
+            
+            // Nodes
+            const node = g.append("g")
+                .selectAll("g")
+                .data(graphData.nodes)
+                .enter().append("g")
+                .attr("class", "node")
+                .call(drag(simulation));
+            
+            node.append("circle")
+                .attr("r", d => Math.sqrt((d.confidence || 0.5) * 10) + 5)
+                .attr("fill", d => {
+                    const type = d.type || "ENTITY";
+                    const colors = {
+                        "PERSON": "#FF6B6B",
+                        "ORGANIZATION": "#4ECDC4",
+                        "CONCEPT": "#95E1D3",
+                        "EVENT": "#F38181",
+                        "LOCATION": "#AA96DA",
+                        "ENTITY": "#4CAF50"
+                    };
+                    return colors[type] || "#4CAF50";
+                });
+            
+            node.append("text")
+                .text(d => d.canonical_name || "Unknown")
+                .attr("dx", 12)
+                .attr("dy", 4);
+            
+            // Update positions
+            simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+                
+                node.attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+            
+            // Tooltip
+            node.on("mouseover", function(event, d) {
+                const tooltip = document.getElementById('tooltip');
+                tooltip.style.display = 'block';
+                tooltip.innerHTML = `
+                    <strong>${d.canonical_name || "Unknown"}</strong><br>
+                    Type: ${d.type || "ENTITY"}<br>
+                    Confidence: ${(d.confidence || 0).toFixed(2)}
+                `;
+            });
+            
+            node.on("mousemove", function(event) {
+                const tooltip = document.getElementById('tooltip');
+                tooltip.style.left = (event.pageX + 10) + 'px';
+                tooltip.style.top = (event.pageY + 10) + 'px';
+            });
+            
+            node.on("mouseout", function() {
+                document.getElementById('tooltip').style.display = 'none';
+            });
+        }
+        
+        // Drag function
+        function drag(simulation) {
+            function dragstarted(event) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                event.subject.fx = event.subject.x;
+                event.subject.fy = event.subject.y;
+            }
+            
+            function dragged(event) {
+                event.subject.fx = event.x;
+                event.subject.fy = event.y;
+            }
+            
+            function dragended(event) {
+                if (!event.active) simulation.alphaTarget(0);
+                event.subject.fx = null;
+                event.subject.fy = null;
+            }
+            
+            return d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended);
+        }
+        
+        // Update statistics
+        async function updateStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const stats = await response.json();
+                
+                document.getElementById('nodes-count').textContent = stats.nodes_count || 0;
+                document.getElementById('edges-count').textContent = stats.edges_count || 0;
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+        
+        // Refresh graph
+        function refreshGraph() {
+            document.getElementById('loading').style.display = 'block';
+            loadGraph();
+        }
+        
+        // Search
+        document.getElementById('search').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const query = this.value;
+                if (query) {
+                    // TODO: Implement search and highlight nodes
+                    console.log('Searching for:', query);
+                }
+            }
+        });
+        
+        // Run on load
+        window.addEventListener('resize', () => {
+            if (graphData.nodes.length > 0) {
+                renderGraph();
+            }
+        });
+        
+        init();
+    </script>
+</body>
+</html>
+

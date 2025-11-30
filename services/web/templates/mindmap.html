@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TabSage - Mindmap Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .controls input, .controls button {
+            padding: 10px 15px;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .controls input {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .controls button {
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .controls button:hover {
+            background: #764ba2;
+        }
+        
+        #mindmap {
+            width: 100%;
+            height: 800px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        
+        .node {
+            cursor: pointer;
+        }
+        
+        .node circle {
+            fill: #667eea;
+            stroke: #fff;
+            stroke-width: 3px;
+            transition: r 0.3s;
+        }
+        
+        .node circle:hover {
+            r: 12;
+            fill: #764ba2;
+        }
+        
+        .node text {
+            font-size: 12px;
+            fill: #333;
+            pointer-events: none;
+            text-anchor: middle;
+            font-weight: 500;
+        }
+        
+        .link {
+            fill: none;
+            stroke: #999;
+            stroke-width: 2px;
+            stroke-opacity: 0.6;
+        }
+        
+        .link:hover {
+            stroke-opacity: 1;
+            stroke-width: 3px;
+        }
+        
+        .node.article circle {
+            fill: #4CAF50;
+        }
+        
+        .node.entity circle {
+            fill: #2196F3;
+        }
+        
+        .node.relation circle {
+            fill: #FF9800;
+        }
+        
+        .tooltip {
+            position: absolute;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 6px;
+            pointer-events: none;
+            font-size: 12px;
+            max-width: 300px;
+            z-index: 1000;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-card {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 TabSage Knowledge Graph - Mindmap View</h1>
+        
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <h3>Articles</h3>
+                <div class="value" id="articles-count">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Entities</h3>
+                <div class="value" id="entities-count">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Relations</h3>
+                <div class="value" id="relations-count">0</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <input type="text" id="search-input" placeholder="Search graph...">
+            <button onclick="searchGraph()">🔍 Search</button>
+            <button onclick="resetView()">🔄 Reset</button>
+            <button onclick="exportGraph()">💾 Export</button>
+        </div>
+        
+        <svg id="mindmap"></svg>
+    </div>
+    
+    <div class="tooltip" id="tooltip" style="display: none;"></div>
+    
+    <script>
+        const svg = d3.select("#mindmap");
+        const width = document.getElementById("mindmap").clientWidth;
+        const height = 800;
+        
+        svg.attr("width", width).attr("height", height);
+        
+        const simulation = d3.forceSimulation()
+            .force("link", d3.forceLink().id(d => d.id).distance(100))
+            .force("charge", d3.forceManyBody().strength(-300))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collision", d3.forceCollide().radius(30));
+        
+        let graphData = { nodes: [], links: [] };
+        let allData = { nodes: [], links: [] };
+        
+        // Load data
+        async function loadGraph() {
+            try {
+                const response = await fetch('/graph_data');
+                const data = await response.json();
+                
+                // Transform data to mindmap format
+                const nodes = [];
+                const links = [];
+                const nodeMap = new Map();
+                
+                // Add articles as central nodes
+                if (data.articles) {
+                    data.articles.forEach((article, idx) => {
+                        const nodeId = `article_${idx}`;
+                        nodes.push({
+                            id: nodeId,
+                            name: article.title || article.url,
+                            type: 'article',
+                            url: article.url,
+                            summary: article.summary,
+                            group: 1
+                        });
+                        nodeMap.set(nodeId, nodes[nodes.length - 1]);
+                    });
+                }
+                
+                // Add entities
+                if (data.entities) {
+                    data.entities.forEach((entity, idx) => {
+                        const nodeId = `entity_${entity.id || idx}`;
+                        if (!nodeMap.has(nodeId)) {
+                            nodes.push({
+                                id: nodeId,
+                                name: entity.canonical_name || entity.name,
+                                type: 'entity',
+                                entity_type: entity.type,
+                                group: 2
+                            });
+                            nodeMap.set(nodeId, nodes[nodes.length - 1]);
+                        }
+                    });
+                }
+                
+                // Add relationships between entities
+                if (data.relations) {
+                    data.relations.forEach((rel, idx) => {
+                        const sourceId = `entity_${rel.subject_id || rel.subject}`;
+                        const targetId = `entity_${rel.object_id || rel.object}`;
+                        
+                        if (nodeMap.has(sourceId) && nodeMap.has(targetId)) {
+                            links.push({
+                                source: sourceId,
+                                target: targetId,
+                                type: rel.predicate,
+                                value: rel.confidence || 1
+                            });
+                        }
+                    });
+                }
+                
+                // Add relationships between articles through common entities
+                if (data.article_connections) {
+                    data.article_connections.forEach((conn, idx) => {
+                        const sourceArticleId = `article_${data.articles.findIndex(a => a.url === conn.source)}`;
+                        const targetArticleId = `article_${data.articles.findIndex(a => a.url === conn.target)}`;
+                        
+                        if (nodeMap.has(sourceArticleId) && nodeMap.has(targetArticleId)) {
+                            links.push({
+                                source: sourceArticleId,
+                                target: targetArticleId,
+                                type: 'related_to',
+                                value: conn.common_count || 1,
+                                common_entities: conn.common_entities || []
+                            });
+                        }
+                    });
+                }
+                
+                allData = { nodes, links };
+                graphData = { nodes, links };
+                
+                updateStats();
+                updateGraph();
+            } catch (error) {
+                console.error("Error loading graph:", error);
+            }
+        }
+        
+        function updateStats() {
+            const articles = graphData.nodes.filter(n => n.type === 'article').length;
+            const entities = graphData.nodes.filter(n => n.type === 'entity').length;
+            const relations = graphData.links.length;
+            
+            document.getElementById("articles-count").textContent = articles;
+            document.getElementById("entities-count").textContent = entities;
+            document.getElementById("relations-count").textContent = relations;
+        }
+        
+        function updateGraph() {
+            // Clear previous graph
+            svg.selectAll("*").remove();
+            
+            // Create links
+            const link = svg.append("g")
+                .selectAll("line")
+                .data(graphData.links)
+                .enter().append("line")
+                .attr("class", "link")
+                .attr("stroke", d => d.type === 'related_to' ? "#ff6b6b" : "#999")
+                .attr("stroke-width", d => d.type === 'related_to' ? Math.sqrt(d.value) * 3 : Math.sqrt(d.value) * 2)
+                .attr("stroke-dasharray", d => d.type === 'related_to' ? "5,5" : "none");
+            
+            // Create nodes
+            const node = svg.append("g")
+                .selectAll("g")
+                .data(graphData.nodes)
+                .enter().append("g")
+                .attr("class", d => `node ${d.type}`)
+                .call(drag(simulation));
+            
+            node.append("circle")
+                .attr("r", d => d.type === 'article' ? 12 : 8)
+                .attr("fill", d => d.type === 'article' ? "#667eea" : "#764ba2")
+                .on("mouseover", showTooltip)
+                .on("mouseout", hideTooltip)
+                .on("click", nodeClick);
+            
+            node.append("text")
+                .text(d => d.name.length > 20 ? d.name.substring(0, 20) + "..." : d.name)
+                .attr("dy", d => d.type === 'article' ? 25 : 20)
+                .attr("dx", 0);
+            
+            // Update positions
+            simulation.nodes(graphData.nodes).on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+                
+                node.attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+            
+            simulation.force("link").links(graphData.links);
+            simulation.alpha(1).restart();
+        }
+        
+        function drag(simulation) {
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+            
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+            
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+            
+            return d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended);
+        }
+        
+        function showTooltip(event, d) {
+            const tooltip = document.getElementById("tooltip");
+            let content = `<strong>${d.name}</strong><br>`;
+            content += `Type: ${d.type}`;
+            if (d.url) content += `<br>URL: <a href="${d.url}" target="_blank">${d.url}</a>`;
+            if (d.summary) content += `<br>${d.summary.substring(0, 100)}...`;
+            if (d.entity_type) content += `<br>Category: ${d.entity_type}`;
+            if (d.common_entities && d.common_entities.length > 0) {
+                content += `<br>Common entities: ${d.common_entities.join(", ")}`;
+            }
+            
+            tooltip.innerHTML = content;
+            tooltip.style.display = "block";
+            tooltip.style.left = (event.pageX + 10) + "px";
+            tooltip.style.top = (event.pageY + 10) + "px";
+        }
+        
+        function hideTooltip() {
+            document.getElementById("tooltip").style.display = "none";
+        }
+        
+        function nodeClick(event, d) {
+            if (d.url) {
+                window.open(d.url, '_blank');
+            }
+        }
+        
+        function searchGraph() {
+            const query = document.getElementById("search-input").value.toLowerCase();
+            if (!query) {
+                graphData = allData;
+                updateGraph();
+                return;
+            }
+            
+            // Filter nodes by query
+            const filteredNodes = allData.nodes.filter(n => 
+                n.name.toLowerCase().includes(query) ||
+                (n.summary && n.summary.toLowerCase().includes(query))
+            );
+            
+            const nodeIds = new Set(filteredNodes.map(n => n.id));
+            
+            // Filter links connected to found nodes
+            const filteredLinks = allData.links.filter(l => 
+                nodeIds.has(l.source.id || l.source) && nodeIds.has(l.target.id || l.target)
+            );
+            
+            graphData = { nodes: filteredNodes, links: filteredLinks };
+            updateStats();
+            updateGraph();
+        }
+        
+        function resetView() {
+            document.getElementById("search-input").value = "";
+            graphData = allData;
+            updateStats();
+            updateGraph();
+        }
+        
+        function exportGraph() {
+            const dataStr = JSON.stringify(graphData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'tabsage_mindmap.json';
+            link.click();
+        }
+        
+        // Load graph on page load
+        loadGraph();
+        
+        // Search on Enter
+        document.getElementById("search-input").addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                searchGraph();
+            }
+        });
+    </script>
+</body>
+</html>
+

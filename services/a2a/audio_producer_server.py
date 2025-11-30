@@ -1,0 +1,20 @@
+"""A2A Server for Audio Producer Agent"""
+
+import os
+import sys
+
+# Add path to src
+
+from agents.audio_producer_a2a_agent import create_audio_producer_a2a_agent
+from google.adk.a2a.utils.agent_to_a2a import to_a2a
+
+# Create Audio Producer Agent for A2A
+audio_producer_agent = create_audio_producer_a2a_agent()
+
+# Expose via A2A
+app = to_a2a(audio_producer_agent, port=int(os.getenv('PORT', 8006)))
+
+if __name__ == "__main__" or os.getenv('AGENT_SERVER'):
+    import uvicorn
+    uvicorn.run(app, host=os.getenv('HOST', '0.0.0.0'), port=int(os.getenv('PORT', 8006)))
+

@@ -1,0 +1,26 @@
+# Dockerfile for Web Interface
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files and application code
+COPY pyproject.toml ./
+COPY . .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -e .
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
+
+# Expose port (Cloud Run uses PORT env var)
+EXPOSE $PORT
+
+# Run web server with gunicorn (Cloud Run compatible)
+CMD gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - services.web.app:app

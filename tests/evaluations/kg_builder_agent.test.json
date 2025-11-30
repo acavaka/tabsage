@@ -1,0 +1,50 @@
+{
+  "test_cases": [
+    {
+      "name": "basic_entity_extraction",
+      "input": {
+        "chunks": [
+          "Google developed Gemini AI for natural language processing. Microsoft is also working on AI technologies."
+        ],
+        "title": "AI Technologies",
+        "language": "ru",
+        "session_id": "test_session_1",
+        "episode_id": "test_episode_1"
+      },
+      "expected_output": {
+        "entities_count": {
+          "min": 2
+        },
+        "entity_types": ["ORGANIZATION"],
+        "relations_count": {
+          "min": 1
+        }
+      },
+      "evaluators": ["factuality", "relevance"]
+    },
+    {
+      "name": "multiple_chunks",
+      "input": {
+        "chunks": [
+          "First chunk about Python programming.",
+          "Second chunk about Django framework.",
+          "Third chunk about web development."
+        ],
+        "title": "Web Development",
+        "language": "ru",
+        "session_id": "test_session_2",
+        "episode_id": "test_episode_2"
+      },
+      "expected_output": {
+        "entities_count": {
+          "min": 3
+        },
+        "relations_count": {
+          "min": 2
+        }
+      },
+      "evaluators": ["factuality", "coherence"]
+    }
+  ]
+}
+

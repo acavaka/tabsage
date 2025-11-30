@@ -1,0 +1,48 @@
+{
+  "test_cases": [
+    {
+      "name": "basic_summary_generation",
+      "input": {
+        "article_text": "Microservices are an architectural approach where an application is broken down into small independent services. Each service is responsible for its own business logic and can be deployed independently.",
+        "title": "Microservices",
+        "url": "https://example.com/microservices"
+      },
+      "expected_output": {
+        "has_summary": true,
+        "summary_length": {
+          "min": 50,
+          "max": 500
+        },
+        "key_points_count": {
+          "min": 2
+        },
+        "intents_count": {
+          "min": 1
+        },
+        "values_count": {
+          "min": 1
+        }
+      },
+      "evaluators": ["factuality", "coherence", "relevance"]
+    },
+    {
+      "name": "technical_article",
+      "input": {
+        "article_text": "Event-Driven Architecture (EDA) allows systems to react to events in real-time. This improves scalability and responsiveness of applications.",
+        "title": "Event-Driven Architecture",
+        "url": "https://example.com/eda"
+      },
+      "expected_output": {
+        "has_summary": true,
+        "key_points_count": {
+          "min": 2
+        },
+        "trends_count": {
+          "min": 1
+        }
+      },
+      "evaluators": ["factuality", "relevance"]
+    }
+  ]
+}
+
