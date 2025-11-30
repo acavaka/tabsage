@@ -53,8 +53,6 @@ This multi-agent approach transforms article processing from a manual 8-13 hour 
 
 Core to TabSage is the multi-agent system - not a monolithic application but an ecosystem of 12 specialized agents, each contributing to a different stage of the knowledge extraction and organization process. This modular approach, facilitated by Google's Agent Development Kit, allows for a sophisticated and robust workflow.
 
-![TabSage Architecture](architecture.svg)
-
 **Visual Architecture Diagram**: See [architecture.svg](architecture.svg) for a detailed visual representation of the system.
 
 The central orchestrator of this system is the `Orchestrator`, which coordinates the work of all agents. The system follows this flow:
